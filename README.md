@@ -28,5 +28,5 @@ pip install openpyxl pandas
 
 ## 실행
 ```bash
-python TennisMatcher
+runtennis
 ```

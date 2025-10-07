@@ -1,2 +1,3 @@
 #!/bin/bash
-/Users/dd_mooon/Desktop/study_wrap/TennisMatcher/LifeTennisMatcher/TennisMatcher.py
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$DIR/TennisMatcher.py"
