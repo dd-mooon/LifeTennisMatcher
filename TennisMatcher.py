@@ -51,21 +51,29 @@ print(f"사용 시퀀스: {round_combinations}")
 wb = openpyxl.load_workbook(file_path)
 ws = wb['Match_schedule']
 
-# 엑셀 로드: 3행부터 데이터 읽기
-df_life = pd.read_excel(file_path, sheet_name='LIFE_members', header=None, skiprows=2)
-life_members_male = ['김종현', '문광식', '박동언', '박종성', '오성목', '임채경', '정기완', '조창현', '홍상현']
-life_members_female = ['김예인', '문지정', '서가연', '서자랑', '장은비', '정예원', '최은진']
+# ============================================================================
+# 라이프 멤버 명단 (여기만 수정하기!)
+# ============================================================================
+life_members_male = [
+    '김종현', '문광식', '박동언', '박종성', '오성목', '임채경', '정기완', '조창현', '홍상현'
+]
+life_members_female = [
+    '김예인', '문지정', '서가연', '서자랑', '장은비', '정예원', '최은진'
+]
+# ============================================================================
+
 life_members = life_members_male + life_members_female
 
-# 라이프 회원 그룹 정보 로드
+# 엑셀에서 그룹 정보 로드 (A그룹/B그룹)
+df_life = pd.read_excel(file_path, sheet_name='LIFE_members', header=None, skiprows=2)
 group_dict = {}
-for name in df_life.iloc[:,1].dropna():
+for name in df_life.iloc[:,1].dropna():  # B열: A그룹 남자
     group_dict[name] = 'A'
-for name in df_life.iloc[:,2].dropna():
+for name in df_life.iloc[:,2].dropna():  # C열: B그룹 남자
     group_dict[name] = 'B'
-for name in df_life.iloc[:,3].dropna():
+for name in df_life.iloc[:,3].dropna():  # D열: A그룹 여자
     group_dict[name] = 'A'
-for name in df_life.iloc[:,4].dropna():
+for name in df_life.iloc[:,4].dropna():  # E열: B그룹 여자
     group_dict[name] = 'B'
 
 # ✅ 게스트 선수들을 group_dict 에 'guest' 로 등록
@@ -110,6 +118,7 @@ def swap_if_needed(previous_round, current_round, max_attempts=20):
 
 MAX_TRIALS = 100
 trial = 0
+all_rounds_matches = []  # Store all matches from all rounds
 while trial < MAX_TRIALS:
     trial += 1
     # ✅ 루프 시작 시 변수 초기화
@@ -119,6 +128,7 @@ while trial < MAX_TRIALS:
     mixed_played_women = {p:0 for p in female_players}
     previous_round = []
     swap_warning = False
+    all_rounds_matches = []  # Reset for each trial
 
     # ✅ main loop
     for rnd, comb_num in enumerate(round_combinations):
@@ -227,54 +237,49 @@ while trial < MAX_TRIALS:
             swap_warning = True
         previous_round = match_list.copy()
 
-        # ✅ 코트 배정
-        match_list_sorted = sorted(match_list, key=lambda x: 0 if x[0]=='여복' else 1)
-        match_players = []
-        for m in match_list_sorted:
-            match_players.extend(m[1])
+        # 각 선수의 이름에 성별 식별자 추가
+        for i, team in enumerate(match_list):
+            players_with_gender = [f"{p}(m)" if p in male_players else f"{p}(f)" for p in team[1]]
+            match_list[i] = (team[0], players_with_gender)
 
-        final_players = match_players + rest_this_round
+        # Select leader from life members after gender identifiers are added
+        for match_index, match in enumerate(match_list):
+            team = match[1]
+            # Extract name without gender identifier and check if it's a life member
+            life_members_in_team = [p for p in team if p.split('(')[0] in life_members]
+            if life_members_in_team:
+                leader = life_members_in_team[0]  # Select the first life member as leader
+                # Reorder team with leader first
+                new_team = [leader] + [p for p in team if p != leader]
+                match_list[match_index] = (match[0], new_team)
+        
+        # ✅ 코트 배정 (리더 선정 후)
+        match_list_sorted = sorted(match_list, key=lambda x: 0 if x[0]=='여복' else 1)
+        match_players_with_leaders = []
+        for m in match_list_sorted:
+            match_players_with_leaders.extend(m[1])
+        
+        final_players = match_players_with_leaders + rest_this_round
         final_players = final_players[:20] + [None]*(20-len(final_players))
 
         row = round_rows[rnd]
-        # 엑셀 파일에 저장할 때 라이프 멤버는 밑줄 추가
+        # dd_mooon : 엑셀 파일에 저장할 때 라이프 멤버는 * 표시
         for idx, name in enumerate(final_players):
             if name:
-                gender = '(m)' if name in male_players else '(f)'
                 cell = ws.cell(row=row, column=idx+3)
-                cell.value = f"{name}{gender}"
+                cell.value = name
                 name_without_gender = name.split('(')[0]  # Extract name without gender
                 if name_without_gender in life_members:
-                    # Remove print statements related to adding asterisks
-                    # print(f"Adding asterisk to {name_without_gender}")
-                    # print(f"Cell value set to: {cell.value}")
-                    cell.value = f"*{name}{gender}"
+                    cell.value = f"*{name}"
                 # Set background color based on team composition
-                if team.count('(f)') == 4:
-                    cell.fill = openpyxl.styles.PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
-                    cell.fill.opacity = 0.2
-                elif team.count('(m)') == 4:
-                    cell.fill = openpyxl.styles.PatternFill(start_color='0000FF', end_color='0000FF', fill_type='solid')
-                    cell.fill.opacity = 0.2
-                elif team.count('(f)') == 2 and team.count('(m)') == 2:
-                    cell.fill = openpyxl.styles.PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
-                    cell.fill.opacity = 0.2
+                if name.endswith('(f)'):
+                    # Count females in the match
+                    pass  # Will handle color below
             else:
                 ws.cell(row=row, column=idx+3).value = None
-
-        # 매칭이 완료된 후에 라이프 멤버를 팀의 맨 앞으로 배치하고, 성별 식별자를 추가
-        for match in match_list:
-            for i, team in enumerate(match[1]):
-                life_members_in_team = [p for p in team if p.split('(')[0] in life_members]
-                non_life_members = [p for p in team if p.split('(')[0] not in life_members]
-                match[1][i] = life_members_in_team + non_life_members
-                # Remove debugging print statements
-                # print(f"Updated team: {match[1][i]}")
-
-        # 각 선수의 이름에 성별 식별자 추가
-        for i, team in enumerate(match_list):
-            players_with_gender = [f"{p} (m)" if p in male_players else f"{p} (f)" for p in team[1]]
-            match_list[i] = (team[0], players_with_gender)
+        
+        # Store matches for this round
+        all_rounds_matches.extend([(rnd + 1, match[0], match[1]) for match in match_list])
 
     # ✅ 혼복 최소 1회 미참여 선수 확인
     unplayed_men_final = [p for p,v in mixed_played_men.items() if v==0]
@@ -296,4 +301,74 @@ while os.path.exists(file_path_save):
     counter += 1
 
 wb.save(file_path_save)
+
+# dd_mooon : 통계 데이터 수집
+player_stats = {}
+for player in all_players:
+    player_stats[player] = {
+        '혼복': 0,
+        '남복': 0,
+        '여복': 0,
+        '총게임': 0,
+        '휴식': 0
+    }
+
+# dd_mooon : 각 라운드별로 통계 계산
+total_rounds = len(all_rounds_matches) // (len(set([r[0] for r in all_rounds_matches])))
+rounds_count = max([r[0] for r in all_rounds_matches])
+
+for round_num, match_type, team in all_rounds_matches:
+    for player_with_gender in team:
+        player_name = player_with_gender.split('(')[0]
+        if player_name in player_stats:
+            player_stats[player_name][match_type] += 1
+            player_stats[player_name]['총게임'] += 1
+
+# dd_mooon : 휴식 횟수 계산
+for player in all_players:
+    player_stats[player]['휴식'] = rounds_count - player_stats[player]['총게임']
+
+# dd_mooon : 테이블 스타일링
+def pad_korean(text, width):
+    """한글은 2칸, 영문/숫자는 1칸으로 계산하여 패딩"""
+    text_width = sum(2 if ord(c) > 127 else 1 for c in text)
+    padding = width - text_width
+    return text + ' ' * max(0, padding)
+
+# dd_mooon : 각 플레이어별 통계 출력
+print("\n" + "="*80)
+print("게임 통계")
+print("="*80)
+
+# dd_mooon : 전체 플레이어 통합 출력 (성별 컬럼 추가)
+print(f"{pad_korean('이름', 15)} {pad_korean('성별', 6)} {pad_korean('구분', 12)} {pad_korean('총게임', 8)} {pad_korean('혼복', 6)} {pad_korean('남복', 6)} {pad_korean('여복', 6)} {pad_korean('휴식', 6)}")
+print("-" * 80)
+for player in male_players:
+    member_type = "라이프" if player in life_members else "게스트"
+    stats = player_stats[player]
+    print(f"{pad_korean(player, 15)} {pad_korean('남', 6)} {pad_korean(member_type, 12)} {pad_korean(str(stats['총게임']), 8)} {pad_korean(str(stats['혼복']), 6)} {pad_korean(str(stats['남복']), 6)} {pad_korean(str(stats['여복']), 6)} {pad_korean(str(stats['휴식']), 6)}")
+
+for player in female_players:
+    member_type = "라이프" if player in life_members else "게스트"
+    stats = player_stats[player]
+    print(f"{pad_korean(player, 15)} {pad_korean('여', 6)} {pad_korean(member_type, 12)} {pad_korean(str(stats['총게임']), 8)} {pad_korean(str(stats['혼복']), 6)} {pad_korean(str(stats['남복']), 6)} {pad_korean(str(stats['여복']), 6)} {pad_korean(str(stats['휴식']), 6)}")
+
+print("\n" + "="*80)
 print(f"✅ 저장 완료: {file_path_save}")
+print("="*80)
+print()
+print("🎾🎾 테니스 치러 가요~ 🎾🎾 ")
+print()
+
+# dd_mooon : Debugging - 플레이어 프린팅 
+# print(f"Life Members: {life_members}")  
+# print(f"Guest Members: {[p for p in all_players if p not in life_members]}")  
+
+# dd_mooon : Debugging - 리더 프린팅
+# print("\nLeaders for all rounds:")
+# for round_num, match_type, team in all_rounds_matches:
+#     # First player in team is the leader if it's a life member
+#     if team and team[0].split('(')[0] in life_members:
+#         print(f"Round {round_num}, {match_type}: {team[0]}")
+#     else:
+#         print(f"Round {round_num}, {match_type}: No leader (no life members in team)")
