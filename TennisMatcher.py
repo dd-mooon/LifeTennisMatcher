@@ -245,9 +245,10 @@ while trial < MAX_TRIALS:
                 cell.value = f"{name}{gender}"
                 name_without_gender = name.split('(')[0]  # Extract name without gender
                 if name_without_gender in life_members:
-                    print(f"Adding asterisk to {name_without_gender}")
+                    # Remove print statements related to adding asterisks
+                    # print(f"Adding asterisk to {name_without_gender}")
+                    # print(f"Cell value set to: {cell.value}")
                     cell.value = f"*{name}{gender}"
-                    print(f"Cell value set to: {cell.value}")
                 # Set background color based on team composition
                 if team.count('(f)') == 4:
                     cell.fill = openpyxl.styles.PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
@@ -267,7 +268,8 @@ while trial < MAX_TRIALS:
                 life_members_in_team = [p for p in team if p.split('(')[0] in life_members]
                 non_life_members = [p for p in team if p.split('(')[0] not in life_members]
                 match[1][i] = life_members_in_team + non_life_members
-                print(f"Updated team: {match[1][i]}")
+                # Remove debugging print statements
+                # print(f"Updated team: {match[1][i]}")
 
         # 각 선수의 이름에 성별 식별자 추가
         for i, team in enumerate(match_list):
