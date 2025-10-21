@@ -73,7 +73,11 @@ if round_combinations is None:
 print(f"사용 시퀀스: {round_combinations}")
 
 wb = openpyxl.load_workbook(file_path)
-ws = wb['Match_schedule']
+# Remove default sheet reference and ensure sheet is selected according to player count
+# Code already ensures selecting ws based on total_players calculated previously
+
+# Previous line removed that causes error:
+# ws = wb['Match_schedule']
 
 # ============================================================================
 # 라이프 멤버 명단 (여기만 수정하기!)
@@ -229,6 +233,24 @@ while trial < MAX_TRIALS:
                 rest_this_round.append(p)
                 rest_count[p] += 1
 
+        # 15명 기준으로 휴식 분배 조정
+        # Ensure total_players is defined before use
+        total_players = len(all_players)
+
+        if total_players == 15:
+            rest_count_list = sorted(all_players, key=lambda x: rest_count[x])
+            while len(rest_this_round) < rest_num:
+                for p in rest_count_list:
+                    if rest_count[p] < 2:
+                        rest_this_round.append(p)
+                        rest_count[p] += 1
+                        if p in active_men:
+                            active_men.remove(p)
+                        elif p in active_women:
+                            active_women.remove(p)
+                        if len(rest_this_round) >= rest_num:
+                            break
+
         match_list = []
 
         # ✅ 혼복 (모든 선수 최소 1회 참여 우선)
@@ -347,12 +369,33 @@ while trial < MAX_TRIALS:
             print(f"  휴식자: {len(rest_with_gender)}명")
             print(f"  총 길이: {len(match_players_with_leaders)} + {empty_slots} + {len(rest_with_gender)} = {len(match_players_with_leaders) + empty_slots + len(rest_with_gender)}")
         
-        # 경기 플레이어 + 빈 코트 + 휴식자
-        final_players = match_players_with_leaders + ([None] * empty_slots) + rest_with_gender
+        # 경기 플레이어 + 빈 코트 + 휴식자를 올바르게 배치
+        final_players = match_players_with_leaders + rest_with_gender + ([None] * empty_slots)
         final_players = final_players[:20] + [None]*(20-len(final_players))
+
+        # 휴식 인원의 배치를 보장하기 위해 
+        for idx in range(len(final_players)):
+            if idx >= len(match_players_with_leaders) + len(rest_with_gender):
+                final_players[idx] = None
 
         row = round_rows[rnd]
         # dd_mooon : 엑셀 파일에 저장할 때 라이프 멤버는 * 표시
+        # 엑셀 시트 분할 작업
+        wb.create_sheet('Match_schedule20')
+        wb.create_sheet('Match_schedule15')
+        wb.create_sheet('Match_schedule10')
+
+        # total_players 대신 all_players 변수를 사용하여 참가자 수를 확인
+        total_players = len(all_players)
+
+        if total_players == 20:
+            ws = wb['Match_schedule20']
+        elif total_players == 15:
+            ws = wb['Match_schedule15']
+        else:
+            ws = wb['Match_schedule10']
+
+        # 각 조건에 맞게 매칭 데이터를 저장하는 로직으로 변경
         for idx, name in enumerate(final_players):
             if name:
                 cell = ws.cell(row=row, column=idx+3)
@@ -362,7 +405,6 @@ while trial < MAX_TRIALS:
                     cell.value = f"*{name}"
                 # Set background color based on team composition
                 if name.endswith('(f)'):
-                    # Count females in the match
                     pass  # Will handle color below
             else:
                 ws.cell(row=row, column=idx+3).value = None
