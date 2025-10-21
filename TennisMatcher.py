@@ -23,18 +23,42 @@ print(f"참가자: 남 {num_male}, 여 {num_female}")
 
 # 혼복 6
 sequence_table = {
+    # 20명 (5코트)
     (6,14): [2,2,2,13,13], (7,13): [7,7,7,7,10], (8,12): [2,3,3,13,13],
     (9,11): [3,3,3,13,13], (10,10): [7,7,8,8,11], (11,9): [3,3,8,8,15],
     (12,8): [3,8,8,8,14], (13,7): [4,8,8,8,14], (14,6): [4,4,8,12,14],
     (15,5): [4,4,12,12,12], (16,4): [4,9,9,12,12],
+    
+    # 15명 (3코트)
+    (2,13): [16,16,16,18,19], (3,12): [16,16,17,18,19], (4,11): [16,17,17,18,18],
+    (5,10): [17,17,17,18,18], (6,9): [17,17,18,18,21], (7,8): [17,18,18,21,21],
+    (8,7): [18,18,21,21,21], (9,6): [21,21,18,21,18], (10,5): [21,21,22,18,18],
+    (11,4): [18,22,22,22,24], (12,3): [19,22,22,24,24], (13,2): [19,22,24,24,24],
+    
+    # 10명 (2코트)
+    (2,8): [26,26,26,27,27], (3,7): [26,26,27,27,27], (4,6): [26,27,27,27,28],
+    (5,5): [27,27,27,28,28], (6,4): [27,27,28,28,30], (7,3): [27,28,30,30,31],
+    (8,2): [28,30,31,31,31],
 }
 
 # 혼복 8
 sequence_table_v2 = {
+    # 20명 (5코트)
     (6,14): [2,7,10,10,13], (7,13): [7,7,7,10,13], (8,12): [3,10,10,11,11],
     (9,11): [3,3,7,13,15], (10,10): [3,7,8,11,15], (11,9): [8,8,11,11,11],
     (12,8): [8,8,8,8,15], (13,7): [8,8,8,12,14], (14,6): [4,8,12,12,14],
     (15,5): [4,12,12,12,12], (16,4): [5,12,12,12,12],
+    
+    # 15명 (3코트)
+    (2,13): [16,16,17,17,18], (3,12): [16,17,17,17,18], (4,11): [17,17,17,17,18],
+    (5,10): [17,17,17,18,18], (6,9): [17,17,18,18,21], (7,8): [17,18,21,21,21],
+    (8,7): [18,21,21,21,22], (9,6): [21,21,18,21,18], (10,5): [22,18,22,18,18],
+    (11,4): [18,22,22,22,24], (12,3): [19,22,22,24,24], (13,2): [19,22,24,24,24],
+    
+    # 10명 (2코트)
+    (2,8): [26,26,26,27,27], (3,7): [26,26,27,27,27], (4,6): [27,27,27,27,27],
+    (5,5): [27,27,27,28,30], (6,4): [27,27,30,30,31], (7,3): [27,30,30,31,31],
+    (8,2): [30,30,31,31,31],
 }
 
 use_v2 = True  # ✅ True면 혼복8, False면 혼복6
@@ -82,9 +106,19 @@ for p in male_players + female_players:
         group_dict[p] = 'guest'
 
 combi_table = {
+    # 20명 (5코트, 4경기)
     1: (0,0,4), 2: (0,1,3), 3: (0,2,2), 4: (0,3,1), 5: (0,4,0),
     6: (1,0,3), 7: (1,1,2), 8: (1,2,1), 9: (1,3,0), 10: (2,0,2),
-    11: (2,1,1), 12: (2,2,0), 13: (3,0,1), 14: (3,1,0), 15: (4,0,0)
+    11: (2,1,1), 12: (2,2,0), 13: (3,0,1), 14: (3,1,0), 15: (4,0,0),
+    
+    # 15명 (3코트, 3경기)
+    16: (0,0,3), 17: (0,1,2), 18: (0,2,1), 19: (0,3,0),
+    20: (1,0,2), 21: (1,1,1), 22: (1,2,0),
+    23: (2,0,1), 24: (2,1,0), 25: (3,0,0),
+    
+    # 10명 (2코트, 2경기)
+    26: (0,0,2), 27: (0,1,1), 28: (0,2,0),
+    29: (1,0,1), 30: (1,1,0), 31: (2,0,0),
 }
 
 round_rows = [5,7,9,11,13]
@@ -140,18 +174,57 @@ while trial < MAX_TRIALS:
         rest_this_round = []
         active_men = male_players.copy()
         active_women = female_players.copy()
-
-        # ✅ 휴식자 선정
+        
+        # ✅ 휴식자 선정: 휴식 횟수가 가장 적은 사람부터 우선 배정
+        # 먼저 최소 휴식 횟수를 찾음
+        min_rest = min(rest_count.values())
+        
+        # 최소 휴식 횟수인 사람들을 우선 휴식 배정
+        never_or_least_rested = [p for p in all_players if rest_count[p] == min_rest]
+        
+        for p in never_or_least_rested:
+            if len(rest_this_round) >= rest_num:
+                break
+            
+            # 성별 체크: 해당 성별이 경기에 충분한지 확인
+            if p in active_men:
+                remaining_men = len([x for x in active_men if x not in rest_this_round]) - 1
+                if remaining_men >= men_need:
+                    rest_this_round.append(p)
+                    rest_count[p] += 1
+                    active_men.remove(p)
+            elif p in active_women:
+                remaining_women = len([x for x in active_women if x not in rest_this_round]) - 1
+                if remaining_women >= women_need:
+                    rest_this_round.append(p)
+                    rest_count[p] += 1
+                    active_women.remove(p)
+        
+        # ✅ 추가 휴식자 선정 (아직 슬롯이 남았다면)
         while len(rest_this_round) < rest_num:
-            candidates = [p for p in all_players if p not in rest_this_round and rest_count[p]==0]
+            # 휴식 가능한 남자/여자 후보 필터링 (휴식 횟수 순으로 정렬)
+            men_candidates = [p for p in active_men if p not in rest_this_round and len(active_men) - len([x for x in rest_this_round if x in active_men]) > men_need]
+            women_candidates = [p for p in active_women if p not in rest_this_round and len(active_women) - len([x for x in rest_this_round if x in active_women]) > women_need]
+            
+            # 휴식 횟수로 정렬 (적은 순)
+            men_candidates.sort(key=lambda x: rest_count[x])
+            women_candidates.sort(key=lambda x: rest_count[x])
+            
+            candidates = men_candidates + women_candidates
+            
             if not candidates:
-                candidates = [p for p in all_players if p not in rest_this_round]
-            p = random.choice(candidates)
-            if p in active_men and len(active_men)-1 >= men_need:
+                # 조건을 만족하는 후보가 없으면 재시도 (Trial 실패 조건)
+                break
+            
+            # 가장 휴식이 적은 사람 선택
+            candidates.sort(key=lambda x: rest_count[x])
+            p = candidates[0]
+            
+            if p in active_men:
                 active_men.remove(p)
                 rest_this_round.append(p)
                 rest_count[p] += 1
-            elif p in active_women and len(active_women)-1 >= women_need:
+            elif p in active_women:
                 active_women.remove(p)
                 rest_this_round.append(p)
                 rest_count[p] += 1
@@ -259,7 +332,23 @@ while trial < MAX_TRIALS:
         for m in match_list_sorted:
             match_players_with_leaders.extend(m[1])
         
-        final_players = match_players_with_leaders + rest_this_round
+        # 코트 수에 따라 빈 코트 처리
+        num_courts = len(match_list_sorted)  # 실제 사용 코트 수
+        empty_slots = max(0, (4 - num_courts) * 4)  # 빈 코트 슬롯 (4코트 기준, 5번째는 휴식)
+        
+        # 휴식자에도 성별 태그 추가
+        rest_with_gender = [f"{p}(m)" if p in male_players else f"{p}(f)" for p in rest_this_round]
+        
+        if rnd == 0:  # 첫 라운드만 디버깅 출력
+            print(f"\n[디버깅] 라운드 {rnd+1} 코트 배정:")
+            print(f"  경기 수: {num_courts}개")
+            print(f"  경기 플레이어: {len(match_players_with_leaders)}명")
+            print(f"  빈 슬롯: {empty_slots}개")
+            print(f"  휴식자: {len(rest_with_gender)}명")
+            print(f"  총 길이: {len(match_players_with_leaders)} + {empty_slots} + {len(rest_with_gender)} = {len(match_players_with_leaders) + empty_slots + len(rest_with_gender)}")
+        
+        # 경기 플레이어 + 빈 코트 + 휴식자
+        final_players = match_players_with_leaders + ([None] * empty_slots) + rest_with_gender
         final_players = final_players[:20] + [None]*(20-len(final_players))
 
         row = round_rows[rnd]
@@ -284,12 +373,30 @@ while trial < MAX_TRIALS:
     # ✅ 혼복 최소 1회 미참여 선수 확인
     unplayed_men_final = [p for p,v in mixed_played_men.items() if v==0]
     unplayed_women_final = [p for p,v in mixed_played_women.items() if v==0]
+    
+    # 휴식 0번인 사람 확인
+    never_rested = [p for p in all_players if rest_count[p] == 0]
 
-    print(f"Trial {trial}: 미혼복 남={len(unplayed_men_final)}, 여={len(unplayed_women_final)}, swap_warning={swap_warning}")
+    print(f"Trial {trial}: 미혼복 남={len(unplayed_men_final)}, 여={len(unplayed_women_final)}, swap_warning={swap_warning}, 미휴식={len(never_rested)}")
+    
+    if trial <= 3 or trial >= 98:  # 처음 3번과 마지막 2번만 상세 출력
+        print(f"  상세: swap_warning={swap_warning}, never_rested={never_rested}")
+        print(f"  휴식 카운트: {[(p, rest_count[p]) for p in all_players]}")
 
-    if not swap_warning and not unplayed_men_final and not unplayed_women_final:
-        print("✅ 성공적으로 매칭 완료")
-        break
+    # 성공 조건: 인원수에 따라 다르게
+    total_players = len(all_players)
+    
+    if total_players == 20:
+        # 20명: 혼복도 중요하게, 휴식도 확인
+        if len(never_rested) == 0 and (len(unplayed_men_final) + len(unplayed_women_final)) <= 2:
+            print("✅ 성공적으로 매칭 완료 (20명)")
+            break
+    else:
+        # 15명 이하: 휴식만 중요, 혼복은 무시
+        if len(never_rested) == 0:
+            print(f"✅ 성공적으로 매칭 완료 ({total_players}명)")
+            print(f"  (혼복 미참여 {len(unplayed_men_final) + len(unplayed_women_final)}명 있지만 허용)")
+            break
 
 # ✅ 파일명 자동 증가 저장
 base_filename = 'LIFE_Auto_Table'
